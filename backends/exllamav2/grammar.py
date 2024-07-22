@@ -1,7 +1,7 @@
 import traceback
 from exllamav2 import ExLlamaV2, ExLlamaV2Tokenizer
 from exllamav2.generator.filters import ExLlamaV2Filter, ExLlamaV2PrefixFilter
-from lmformatenforcer import JsonSchemaParser, RegexParser
+from lmformatenforcer import JsonSchemaParser
 from lmformatenforcer.integrations.exllamav2 import (
     ExLlamaV2TokenEnforcerFilter,
     build_token_enforcer_tokenizer_data,
@@ -16,43 +16,56 @@ class OutlinesTokenizerWrapper:
 
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
-        id_to_piece = self.tokenizer.get_id_to_piece_list()
-        self.vocabulary = {piece: idx for idx, piece in enumerate(id_to_piece)}
+        self.vocabulary = {
+            self.tokenizer.tokenizer_model.id_to_piece(idx): idx
+            for idx in range(self.tokenizer.get_vocab_size())
+        }
         self.eos_token_id = self.tokenizer.eos_token_id
-        self.eos_token = id_to_piece[self.tokenizer.eos_token_id]
-        self.special_tokens = list(self.tokenizer.extended_id_to_piece.keys())
+        self.eos_token = self.tokenizer.eos_token
+        self.special_tokens = self.special_tokens = set(
+            self.tokenizer.extended_id_to_piece.values()
+        )
+        self.id_to_piece = self.tokenizer.get_id_to_piece_list()
 
     def convert_token_to_string(self, token):
-        return token
+        return self.id_to_piece[self.vocabulary[token]]
 
     def decode(self, tokens):
         s = ""
-        id_to_piece = self.tokenizer.get_id_to_piece_list()
         for t in tokens:
-            s += id_to_piece[t]
+            s += self.id_to_piece[t]
         return s
 
 
-class ExLlamaV2EbnfFilter(ExLlamaV2Filter):
-    """Filter class for context-free grammar via outlines"""
+class ExLlamaV2OutlinesFilter(ExLlamaV2Filter):
+    """Filter class for outlines-based FSM"""
 
-    def __init__(self, model, tokenizer, grammar):
-        from outlines.fsm.fsm import CFGFSM
-
+    def __init__(self, model, tokenizer, guide, state=0):
         super().__init__(model, tokenizer)
 
-        self.wrapped_tokenizer = OutlinesTokenizerWrapper(tokenizer)
-        self.fsm = CFGFSM(grammar, self.wrapped_tokenizer)
-        self.state = self.fsm.first_state
+        self.guide = guide
+        self.state = state
 
     def begin(self, prefix_str=""):
-        self.state = self.fsm.first_state
+        self.state = 0
 
     def feed(self, token):
-        self.state = self.fsm.next_state(self.state, token.item())
+        self.state = self.guide.get_next_state(self.state, token.item())
 
     def next(self):
-        return self.fsm.allowed_token_ids(self.state), set()
+        return self.guide.get_next_instruction(self.state).tokens, set()
+
+    def clone(self, c=None):
+        if c is None:
+            return ExLlamaV2OutlinesFilter(
+                self.model, self.tokenizer, self.guide, self.state
+            )
+        else:
+            c.model = self.model
+            c.tokenizer = self.tokenizer
+            c.guide = self.guide
+            c.state = self.state
+            return c
 
 
 @lru_cache(10)
@@ -109,28 +122,27 @@ class ExLlamaV2Grammar:
     def add_regex_filter(
         self,
         pattern: str,
+        model: ExLlamaV2,
         tokenizer: ExLlamaV2Tokenizer,
     ):
         """Adds an ExllamaV2 filter based on regular expressions."""
 
-        # Create the parser
         try:
-            pattern_parser = RegexParser(pattern)
-        except Exception:
-            traceback.print_exc()
+            from outlines.fsm.guide import RegexGuide
+
+            guide = RegexGuide(pattern, OutlinesTokenizerWrapper(tokenizer))
+            regex_filter = ExLlamaV2OutlinesFilter(model, tokenizer, guide)
+        except ImportError:
             logger.error(
-                "Skipping because the regex pattern couldn't be parsed. "
-                "Please read the above error for more information."
+                "Skipping regex parsing because Outlines is not installed.\n"
+                "Please run the following command in your environment "
+                "to install extra packages:\n"
+                "pip install -U .[extras]"
             )
 
             return
 
-        lmfilter = ExLlamaV2TokenEnforcerFilter(
-            pattern_parser, _get_lmfe_tokenizer_data(tokenizer)
-        )
-
-        # Append the filters
-        self.filters.append(lmfilter)
+        self.filters.append(regex_filter)
 
     def add_ebnf_filter(
         self,
@@ -140,11 +152,13 @@ class ExLlamaV2Grammar:
     ):
         """
         Add an EBNF grammar filter.
-        Possibly replace outlines with an in-house solution in the future.
         """
 
         try:
-            ebnf_filter = ExLlamaV2EbnfFilter(model, tokenizer, ebnf_string)
+            from outlines.fsm.guide import CFGGuide
+
+            guide = CFGGuide(ebnf_string, OutlinesTokenizerWrapper(tokenizer))
+            ebnf_filter = ExLlamaV2OutlinesFilter(model, tokenizer, guide)
         except ImportError:
             logger.error(
                 "Skipping EBNF parsing because Outlines is not installed.\n"
