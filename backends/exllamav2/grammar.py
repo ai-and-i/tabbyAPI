@@ -73,11 +73,27 @@ def _get_lmfe_tokenizer_data(tokenizer: ExLlamaV2Tokenizer):
     return build_token_enforcer_tokenizer_data(tokenizer)
 
 
+@lru_cache
+def _get_regex_guide(pattern, tokenizer):
+    from outlines.fsm.guide import RegexGuide
+
+    return RegexGuide(pattern, OutlinesTokenizerWrapper(tokenizer))
+
+
+@lru_cache
+def _get_cfg_guire(ebnf_string, tokenizer):
+    from outlines.fsm.guide import CFGGuide
+
+    return CFGGuide(ebnf_string, OutlinesTokenizerWrapper(tokenizer))
+
+
 def clear_grammar_func_cache():
     """Flush tokenizer_data cache to avoid holding references to
     tokenizers after unloading a model"""
 
     _get_lmfe_tokenizer_data.cache_clear()
+    _get_regex_guide.cache_clear()
+    _get_cfg_guire.cache_clear()
 
 
 class ExLlamaV2Grammar:
@@ -128,9 +144,7 @@ class ExLlamaV2Grammar:
         """Adds an ExllamaV2 filter based on regular expressions."""
 
         try:
-            from outlines.fsm.guide import RegexGuide
-
-            guide = RegexGuide(pattern, OutlinesTokenizerWrapper(tokenizer))
+            guide = _get_regex_guide(pattern, tokenizer)
             regex_filter = ExLlamaV2OutlinesFilter(model, tokenizer, guide)
         except ImportError:
             logger.error(
@@ -155,9 +169,7 @@ class ExLlamaV2Grammar:
         """
 
         try:
-            from outlines.fsm.guide import CFGGuide
-
-            guide = CFGGuide(ebnf_string, OutlinesTokenizerWrapper(tokenizer))
+            guide = _get_cfg_guire(ebnf_string, tokenizer)
             ebnf_filter = ExLlamaV2OutlinesFilter(model, tokenizer, guide)
         except ImportError:
             logger.error(
