@@ -423,9 +423,9 @@ class ExllamaV2Container:
             "cache_mode": self.cache_mode,
             "chunk_size": self.config.max_input_len,
             "num_experts_per_token": self.config.num_experts_per_token,
-            "prompt_template": self.prompt_template.name
-            if self.prompt_template
-            else None,
+            "prompt_template": (
+                self.prompt_template.name if self.prompt_template else None
+            ),
         }
 
         if self.draft_config:
@@ -1157,7 +1157,7 @@ class ExllamaV2Container:
             stop_conditions=stop_conditions,
             decode_special_tokens=decode_special_tokens,
             filters=grammar_handler.filters,
-            filter_prefer_eos=bool(grammar_handler.filters),
+            filter_prefer_eos=False,
             return_probs=request_logprobs > 0,
             return_top_tokens=request_logprobs,
             return_logits=request_logprobs > 0,

@@ -43,6 +43,8 @@ class ExLlamaV2OutlinesFilter(ExLlamaV2Filter):
     def __init__(self, model, tokenizer, guide, state=0):
         super().__init__(model, tokenizer)
 
+        self.model = model
+        self.tokenizer = tokenizer
         self.guide = guide
         self.state = state
 
