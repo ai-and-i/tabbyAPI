@@ -1063,22 +1063,30 @@ class ExllamaV2Container:
                 json_schema, self.model, self.tokenizer
             )
 
-        # Add regex filter if it exists
-        regex_pattern = unwrap(kwargs.get("regex_pattern"))
-        if regex_pattern:
-            grammar_handler.add_regex_filter(regex_pattern, self.model, self.tokenizer)
-
-        # Add EBNF filter if it exists
-        grammar_string = unwrap(kwargs.get("grammar_string"))
-        if grammar_string:
-            grammar_handler.add_ebnf_filter(grammar_string, self.model, self.tokenizer)
-
         # Fetch EOS tokens from generation_config if they exist
         eos_tokens = (
             self.generation_config.eos_tokens()
             if self.generation_config
             else [self.tokenizer.eos_token_id]
         )
+
+        extra_eos_token_ids = [
+            t for t in eos_tokens if t != self.tokenizer.eos_token_id
+        ]
+
+        # Add regex filter if it exists
+        regex_pattern = unwrap(kwargs.get("regex_pattern"))
+        if regex_pattern:
+            grammar_handler.add_regex_filter(
+                regex_pattern, self.model, self.tokenizer, extra_eos_token_ids
+            )
+
+        # Add EBNF filter if it exists
+        grammar_string = unwrap(kwargs.get("grammar_string"))
+        if grammar_string:
+            grammar_handler.add_ebnf_filter(
+                grammar_string, self.model, self.tokenizer, extra_eos_token_ids
+            )
 
         # Ban the EOS token if specified. If not, append to stop conditions
         # as well.

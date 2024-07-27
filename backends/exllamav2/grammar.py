@@ -40,13 +40,16 @@ class OutlinesTokenizerWrapper:
 class ExLlamaV2OutlinesFilter(ExLlamaV2Filter):
     """Filter class for outlines-based FSM"""
 
-    def __init__(self, model, tokenizer, guide, state=0):
+    def __init__(self, model, tokenizer, guide, state=0, extra_eos_token_ids=[]):
         super().__init__(model, tokenizer)
 
         self.model = model
         self.tokenizer = tokenizer
         self.guide = guide
         self.state = state
+
+        self.eos_token_id = tokenizer.eos_token_id
+        self.extra_eos_token_ids = extra_eos_token_ids
 
     def begin(self, prefix_str=""):
         self.state = 0
@@ -55,7 +58,10 @@ class ExLlamaV2OutlinesFilter(ExLlamaV2Filter):
         self.state = self.guide.get_next_state(self.state, token.item())
 
     def next(self):
-        return self.guide.get_next_instruction(self.state).tokens, set()
+        tokens = set(self.guide.get_next_instruction(self.state).tokens)
+        if self.extra_eos_token_ids and self.eos_token_id in tokens:
+            tokens.update(self.extra_eos_token_ids)
+        return tokens, set()
 
     def clone(self, c=None):
         if c is None:
@@ -142,12 +148,15 @@ class ExLlamaV2Grammar:
         pattern: str,
         model: ExLlamaV2,
         tokenizer: ExLlamaV2Tokenizer,
+        extra_eos_token_ids: List[int] = [],
     ):
         """Adds an ExllamaV2 filter based on regular expressions."""
 
         try:
             guide = _get_regex_guide(pattern, tokenizer)
-            regex_filter = ExLlamaV2OutlinesFilter(model, tokenizer, guide)
+            regex_filter = ExLlamaV2OutlinesFilter(
+                model, tokenizer, guide, extra_eos_token_ids=extra_eos_token_ids
+            )
         except ImportError:
             logger.error(
                 "Skipping regex parsing because Outlines is not installed.\n"
@@ -165,6 +174,7 @@ class ExLlamaV2Grammar:
         ebnf_string: str,
         model: ExLlamaV2,
         tokenizer: ExLlamaV2Tokenizer,
+        extra_eos_token_ids: List[int] = [],
     ):
         """
         Add an EBNF grammar filter.
@@ -172,7 +182,9 @@ class ExLlamaV2Grammar:
 
         try:
             guide = _get_cfg_guire(ebnf_string, tokenizer)
-            ebnf_filter = ExLlamaV2OutlinesFilter(model, tokenizer, guide)
+            ebnf_filter = ExLlamaV2OutlinesFilter(
+                model, tokenizer, guide, extra_eos_token_ids=extra_eos_token_ids
+            )
         except ImportError:
             logger.error(
                 "Skipping EBNF parsing because Outlines is not installed.\n"
