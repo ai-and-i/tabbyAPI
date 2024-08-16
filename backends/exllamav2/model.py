@@ -844,6 +844,8 @@ class ExllamaV2Container:
             "text": "",
             "prompt_tokens": 0,
             "generation_tokens": 0,
+            "prompt_duration": 0,
+            "generation_duration": 0,
             "offset": [],
             "token_probs": {},
             "logprobs": [],
@@ -877,6 +879,12 @@ class ExllamaV2Container:
             )
             joined_generation["generated_tokens"] = unwrap(
                 generations[-1].get("generated_tokens"), 0
+            )
+            joined_generation["prompt_duration"] = unwrap(
+                generations[-1].get("prompt_duration"), 0
+            )
+            joined_generation["generation_duration"] = unwrap(
+                generations[-1].get("generation_duration"), 0
             )
 
         return joined_generation
@@ -1203,6 +1211,8 @@ class ExllamaV2Container:
                         "prompt_tokens": context_len,
                         "generated_tokens": generated_tokens,
                         "offset": len(full_response),
+                        "prompt_duration": result.get("time_prefill"),
+                        "generation_duration": result.get("time_generate"),
                     }
 
                     if request_logprobs > 0:
@@ -1253,6 +1263,10 @@ class ExllamaV2Container:
                         generation = {
                             "prompt_tokens": generation.get("prompt_tokens"),
                             "generated_tokens": generation.get("generated_tokens"),
+                            "prompt_duration": generation.get("prompt_duration"),
+                            "generation_duration": generation.get(
+                                "generation_duration"
+                            ),
                             "finish_reason": finish_reason,
                         }
 

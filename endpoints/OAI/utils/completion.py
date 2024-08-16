@@ -63,6 +63,8 @@ def _create_response(
 
     prompt_tokens = unwrap(generations[-1].get("prompt_tokens"), 0)
     completion_tokens = unwrap(generations[-1].get("generated_tokens"), 0)
+    prompt_duration = unwrap(generations[-1].get("prompt_duration"), 0)
+    completion_duration = unwrap(generations[-1].get("generation_duration"), 0)
 
     response = CompletionResponse(
         id=f"cmpl-{request_id}",
@@ -72,6 +74,8 @@ def _create_response(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=prompt_tokens + completion_tokens,
+            prompt_duration=prompt_duration,
+            completion_duration=completion_duration,
         ),
     )
 

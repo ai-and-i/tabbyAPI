@@ -13,6 +13,9 @@ class UsageStats(BaseModel):
     completion_tokens: int
     total_tokens: int
 
+    prompt_duration: float
+    completion_duration: float
+
 
 class CompletionResponseFormat(BaseModel):
     type: str = "text"

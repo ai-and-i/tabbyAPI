@@ -39,6 +39,8 @@ def _create_response(
 
     prompt_tokens = unwrap(generations[-1].get("prompt_tokens"), 0)
     completion_tokens = unwrap(generations[-1].get("generated_tokens"), 0)
+    prompt_duration = unwrap(generations[-1].get("prompt_duration"), 0)
+    completion_duration = unwrap(generations[-1].get("generation_duration"), 0)
 
     choices = []
     for index, generation in enumerate(generations):
@@ -86,6 +88,8 @@ def _create_response(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=prompt_tokens + completion_tokens,
+            prompt_duration=prompt_duration,
+            completion_duration=completion_duration,
         ),
     )
 
@@ -107,11 +111,15 @@ def _create_stream_chunk(
     if is_usage_chunk:
         prompt_tokens = unwrap(generation.get("prompt_tokens"), 0)
         completion_tokens = unwrap(generation.get("generated_tokens"), 0)
+        prompt_duration = unwrap(generation.get("prompt_duration"), 0)
+        completion_duration = unwrap(generation.get("generation_duration"), 0)
 
         usage_stats = UsageStats(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=prompt_tokens + completion_tokens,
+            prompt_duration=prompt_duration,
+            completion_duration=completion_duration,
         )
     elif "finish_reason" in generation:
         choice = ChatCompletionStreamChoice(
