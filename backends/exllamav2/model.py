@@ -70,6 +70,7 @@ class ExllamaV2Container:
     cache_size: int = None
     cache_mode: str = "FP16"
     draft_cache_mode: str = "FP16"
+    num_draft_tokens: int = 4
     max_batch_size: int = 20
     generation_config: Optional[GenerationConfig] = None
 
@@ -128,6 +129,8 @@ class ExllamaV2Container:
                     full model.
                 'draft_cache_mode' (str): Sets draft cache mode: "FP16"/"Q8"/"Q6"/"Q4"
                     (default: "FP16")
+                'num_draft_tokens' (int): Sets the number of draft tokens to generate
+                    (default: 4)
                 'lora_dir' (str): LoRA directory
                 'loras' (list[dict]): List of loras to be loaded, consisting of
                     'name' and 'scaling'
@@ -344,6 +347,7 @@ class ExllamaV2Container:
             )
             self.draft_config.max_seq_len = self.config.max_seq_len
             self.draft_cache_mode = unwrap(draft_args.get("draft_cache_mode"), "FP16")
+            self.num_draft_tokens = unwrap(draft_args.get("num_draft_tokens"), 4)
 
             if chunk_size:
                 self.draft_config.max_input_len = chunk_size
@@ -438,6 +442,7 @@ class ExllamaV2Container:
             }
 
             model_params["draft"] = draft_model_params
+            model_params["num_draft_tokens"] = self.num_draft_tokens
 
         return model_params
 
@@ -657,6 +662,7 @@ class ExllamaV2Container:
                 cache=self.cache,
                 draft_model=self.draft_model,
                 draft_cache=self.draft_cache,
+                num_draft_tokens=self.num_draft_tokens,
                 tokenizer=self.tokenizer,
                 max_batch_size=self.max_batch_size,
                 paged=self.paged,

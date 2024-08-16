@@ -24,6 +24,7 @@ class ModelCardParameters(BaseModel):
 
     # Draft is another model, so include it in the card params
     draft: Optional["ModelCard"] = None
+    num_draft_tokens: Optional[int] = None
 
 
 class ModelCard(BaseModel):
